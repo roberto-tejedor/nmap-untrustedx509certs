@@ -8,7 +8,7 @@ local string = require "string"
 local table = require "table"
 local tls = require "tls"
 local unicode = require "unicode"
---local have_openssl, openssl = pcall(require, "openssl")
+local openssl = require "openssl"
 
 description = [[
 Detects servers with a X509 certificate whose SubjectName or IssuerName
@@ -24,7 +24,8 @@ expected range, or if it is a self-signed certificate.
 --
 -- @output
 --
--- @args
+-- @args list the csv file name with the blacklist entries
+--       (default: "blacklist.csv") 
 --
 
 author = "Roberto Tejedor Moreno"
@@ -35,10 +36,13 @@ categories = { "default", "safe" }
 
 portrule = function(host, port)
     return shortport.ssl(host, port) or sslcert.isPortSupported(port) or sslcert.getPrepareTLSWithoutReconnect(port)
-  end
+end
+
+local function read_list(list_file)
+
+end
 
 local function get_certificate_chain(host, port)
-
     local cmd = ("echo | openssl s_client -showcerts -connect %s:%s"):format(host.ip, port.number)
 
     local handle = io.popen(cmd)
@@ -46,17 +50,31 @@ local function get_certificate_chain(host, port)
     local certificate_chain = handle:read("*a")
 
     handle:close()
+    
+    local certificates = {}
+
+    -- Get certificates
+    for cert in certificate_chain:gmatch("-----BEGIN CERTIFICATE-----\n(.-)-----END CERTIFICATE-----") do
+        table.insert(certificates, "-----BEGIN CERTIFICATE-----\n" .. cert .. "-----END CERTIFICATE-----")
+    end
+
+    local server_cert_file = certificates[1]
+    local ca_cert_file = certificates[2]
+
+    print(server_cert_file)
+    print(ca_cert_file)
 
     return certificate_chain
-
 end
+
 
 action = function(host, port)
     host.targetname = tls.servername(host)
+    local list_file = stdnse.get_script_args('list') or "blacklist.csv"
+    local list = read_list(list_file)
     local certificate_chain = get_certificate_chain(host, port)
+
     --local ca_cert_file, server_cert_file
     --local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
-
-    return stdnse.format_output(true, certificate_chain)
 
 end
