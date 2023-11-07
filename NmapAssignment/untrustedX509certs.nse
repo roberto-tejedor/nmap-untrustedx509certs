@@ -58,13 +58,13 @@ local function get_certificate_chain(host, port)
         table.insert(certificates, "-----BEGIN CERTIFICATE-----\n" .. cert .. "-----END CERTIFICATE-----")
     end
 
-    local server_cert_file = certificates[1]
-    local ca_cert_file = certificates[2]
-
-    print(server_cert_file)
-    print(ca_cert_file)
-
-    return certificate_chain
+    -- Write certificates in files
+    local server_cert_file = io.open("server.pem", "w")
+    server_cert_file:write(certificates[1])
+    local ca_cert_file = io.open("ca.pem", "w")
+    ca_cert_file:write(certificates[2])
+    server_cert_file:close()
+    ca_cert_file:close()
 end
 
 
@@ -72,9 +72,17 @@ action = function(host, port)
     host.targetname = tls.servername(host)
     local list_file = stdnse.get_script_args('list') or "blacklist.csv"
     local list = read_list(list_file)
-    local certificate_chain = get_certificate_chain(host, port)
-
-    --local ca_cert_file, server_cert_file
-    --local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
-
+    get_certificate_chain(host, port)
+    local server_cert_file = "server.pem"
+    local ca_cert_file = "ca.pem"
+    local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
+    local handle = io.popen(openssl_cmd)
+    local output = handle:read("*a")
+    handle:close()
+    if string.find(output, "OK") then
+        print("Signature verified")
+    else
+        print("Incorrect signature")
+    end
+    
 end
