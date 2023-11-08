@@ -67,12 +67,7 @@ local function get_certificate_chain(host, port)
     ca_cert_file:close()
 end
 
-
-action = function(host, port)
-    host.targetname = tls.servername(host)
-    local list_file = stdnse.get_script_args('list') or "blacklist.csv"
-    local list = read_list(list_file)
-    get_certificate_chain(host, port)
+local function validate_chain()
     local server_cert_file = "server.pem"
     local ca_cert_file = "ca.pem"
     local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
@@ -80,9 +75,20 @@ action = function(host, port)
     local output = handle:read("*a")
     handle:close()
     if string.find(output, "OK") then
-        print("Signature verified")
+        print("Verification correct: " .. output)
     else
-        print("Incorrect signature")
+        print("Error verifying: " .. output)
     end
+end
+
+
+action = function(host, port)
+    host.targetname = tls.servername(host)
+    local list_file = stdnse.get_script_args('list') or "blacklist.csv"
+    local list = read_list(list_file)
+    get_certificate_chain(host, port)
+    validate_chain()
+    
+    
     
 end
