@@ -42,6 +42,7 @@ local function read_list(list_file)
 
 end
 
+-- Gets the certificate chain via openssl and stores server cert and ca cert in files
 local function get_certificate_chain(host, port)
     local cmd = ("echo | openssl s_client -showcerts -connect %s:%s"):format(host.ip, port.number)
 
@@ -59,36 +60,139 @@ local function get_certificate_chain(host, port)
     end
 
     -- Write certificates in files
-    local server_cert_file = io.open("server.pem", "w")
+    local server_cert_filename = "server.pem"
+    local server_cert_file = io.open(server_cert_filename, "w")
     server_cert_file:write(certificates[1])
-    local ca_cert_file = io.open("ca.pem", "w")
-    ca_cert_file:write(certificates[2])
     server_cert_file:close()
-    ca_cert_file:close()
+    
+    -- The second certificate in the chain is the CA certificate
+    if certificates[2] ~= nil then
+        local ca_cert_filename = "ca.pem"
+        local ca_cert_file = io.open(ca_cert_filename, "w")
+        ca_cert_file:write(certificates[2])
+        ca_cert_file:close()
+    end
+    
+
+    return server_cert_filename, ca_cert_filename
 end
 
-local function validate_chain()
-    local server_cert_file = "server.pem"
-    local ca_cert_file = "ca.pem"
+-- Verifies that the server certificate issuer matches the CA certificate subject
+local function check_issuer(server_cert, ca_cert)
+    local match = true
+    for k, v in pairs(server_cert.issuer) do
+        
+        if v ~= ca_cert.subject[k] then
+            print("The server certificate issuer does not match the CA certificate subject: field" .. k .. "is different.")
+            match = false
+            break
+        end
+    end
+
+    if match then
+        print("The server certificate issuer matches the CA certificate subject")
+    end
+end
+
+
+-- Verifies that the server cert is signed by the ca cert via openssl
+local function check_signature(server_cert_file, ca_cert_file)
+
     local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
     local handle = io.popen(openssl_cmd)
     local output = handle:read("*a")
     handle:close()
+
     if string.find(output, "OK") then
-        print("Verification correct: " .. output)
+        print("Signature correct: " .. output)
     else
-        print("Error verifying: " .. output)
+        print("Error verifying signature: " .. output)
     end
+
 end
+
+-- Gets the certificates and parses them using sslcert library to access the fields easily
+local function get_certifiates_info(host, port)
+
+    -- Get the certificate in PEM format
+    local server_cert_file, ca_cert_file = get_certificate_chain(host, port)
+
+    -- Transforms from PEM to DER and parse the certificates to manipulate them using the sslcert library
+    local openssl_cmd = ("openssl x509 -inform PEM -in %s -outform DER"):format(server_cert_file)
+    local handle = io.popen(openssl_cmd)
+    local server_cert = sslcert.parse_ssl_certificate(handle:read("*a"))
+    openssl_cmd = ("openssl x509 -inform PEM -in %s -outform DER"):format(ca_cert_file)
+    handle = io.popen(openssl_cmd)
+    local ca_cert = sslcert.parse_ssl_certificate(handle:read("*a"))
+    handle:close()
+    
+    -- Validations
+    check_issuer(server_cert, ca_cert)
+    check_signature(server_cert_file, ca_cert_file)
+
+    return server_cert, ca_cert
+end
+
 
 
 action = function(host, port)
     host.targetname = tls.servername(host)
     local list_file = stdnse.get_script_args('list') or "blacklist.csv"
     local list = read_list(list_file)
-    get_certificate_chain(host, port)
-    validate_chain()
+
+    local server_cert, ca_cert = get_certifiates_info(host, port)
     
-    
-    
+
 end
+
+
+
+
+-- -- From ssl-cert.nse (https://nmap.org/nsedoc/scripts/ssl-cert.html)
+-- -- These are the subject/issuer name fields that will be shown, in this order,
+-- -- without a high verbosity.
+-- local NON_VERBOSE_FIELDS = { "commonName", "organizationName",
+-- "stateOrProvinceName", "countryName" }
+
+-- -- Test to see if the string is UTF-16 and transcode it if possible
+-- local function maybe_decode(str)
+--   -- If length is not even, then return as-is
+--   if #str < 2 or #str % 2 == 1 then
+--     return str
+--   end
+--   if str:byte(1) > 0 and str:byte(2) == 0 then
+--     -- little-endian UTF-16
+--     return unicode.transcode(str, unicode.utf16_dec, unicode.utf8_enc, false, nil)
+--   elseif str:byte(1) == 0 and str:byte(2) > 0 then
+--     -- big-endian UTF-16
+--     return unicode.transcode(str, unicode.utf16_dec, unicode.utf8_enc, true, nil)
+--   else
+--     return str
+--   end
+-- end
+-- function stringify_name(name)
+--     local fields = {}
+--     local _, k, v
+--     if not name then
+--       return nil
+--     end
+--     for _, k in ipairs(NON_VERBOSE_FIELDS) do
+--       v = name[k]
+--       if v then
+--         fields[#fields + 1] = string.format("%s=%s", k, maybe_decode(v) or '')
+--       end
+--     end
+--     if nmap.verbosity() > 1 then
+--       for k, v in pairs(name) do
+--         -- Don't include a field twice.
+--         if not table_find(NON_VERBOSE_FIELDS, k) then
+--           if type(k) == "table" then
+--             k = table.concat(k, ".")
+--           end
+--           fields[#fields + 1] = string.format("%s=%s", k, maybe_decode(v) or '')
+--         end
+--       end
+--     end
+--     return table.concat(fields, "/")
+--   end
+  

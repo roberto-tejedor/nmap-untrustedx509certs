@@ -45,6 +45,7 @@ luac.out
 
 ##
 *.pem
+*.der
 
 # End of https://www.toptal.com/developers/gitignore/api/lua
 
