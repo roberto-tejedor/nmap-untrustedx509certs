@@ -38,8 +38,19 @@ portrule = function(host, port)
     return shortport.ssl(host, port) or sslcert.isPortSupported(port) or sslcert.getPrepareTLSWithoutReconnect(port)
 end
 
-local function read_list(list_file)
+local function read_list(list_filename)
+    local list_file =  io.open(list_filename, "r")
 
+    local blacklist = {}
+    for line in io.lines(list_filename) do
+        local date, name, severity = line:match("([^;]+);([^;]+);([^;]+)")
+        if date and name and severity then
+            table.insert(blacklist, {date = date, name = name, severity = severity})
+        end
+    end
+
+    list_file:close()
+    return blacklist
 end
 
 -- Gets the certificate chain via openssl and stores server cert and ca cert in files
@@ -66,8 +77,8 @@ local function get_certificate_chain(host, port)
     server_cert_file:close()
     
     -- The second certificate in the chain is the CA certificate
+    local ca_cert_filename = "ca.pem"
     if certificates[2] ~= nil then
-        local ca_cert_filename = "ca.pem"
         local ca_cert_file = io.open(ca_cert_filename, "w")
         ca_cert_file:write(certificates[2])
         ca_cert_file:close()
@@ -83,12 +94,12 @@ local function check_issuer(server_cert, ca_cert)
     for k, v in pairs(server_cert.issuer) do
         
         if v ~= ca_cert.subject[k] then
-            print("The server certificate issuer does not match the CA certificate subject: field" .. k .. "is different.")
+            print("WARNING: The server certificate issuer does not match the CA certificate subject: field" .. k .. "is different.")
             match = false
             break
         end
     end
-
+    
     if match then
         print("The server certificate issuer matches the CA certificate subject")
     end
@@ -106,9 +117,14 @@ local function check_signature(server_cert_file, ca_cert_file)
     if string.find(output, "OK") then
         print("Signature correct: " .. output)
     else
-        print("Error verifying signature: " .. output)
+        print("WARNING: Error verifying signature: " .. output)
     end
 
+end
+
+local function check_self_signed_cert(cert)
+    local key = cert.pubkey.bits
+    
 end
 
 -- Gets the certificates and parses them using sslcert library to access the fields easily
@@ -121,78 +137,72 @@ local function get_certifiates_info(host, port)
     local openssl_cmd = ("openssl x509 -inform PEM -in %s -outform DER"):format(server_cert_file)
     local handle = io.popen(openssl_cmd)
     local server_cert = sslcert.parse_ssl_certificate(handle:read("*a"))
-    openssl_cmd = ("openssl x509 -inform PEM -in %s -outform DER"):format(ca_cert_file)
-    handle = io.popen(openssl_cmd)
-    local ca_cert = sslcert.parse_ssl_certificate(handle:read("*a"))
+    local ca_cert = nil
+    if ca_cert_file ~= nil then
+        openssl_cmd = ("openssl x509 -inform PEM -in %s -outform DER"):format(ca_cert_file)
+        handle = io.popen(openssl_cmd)
+        ca_cert = sslcert.parse_ssl_certificate(handle:read("*a"))
+    end
+    
     handle:close()
     
     -- Validations
-    check_issuer(server_cert, ca_cert)
-    check_signature(server_cert_file, ca_cert_file)
+    if ca_cert ~= nil then
+        check_issuer(server_cert, ca_cert)
+        check_signature(server_cert_file, ca_cert_file)
+    else
+        -- The certificate is self signed
+        print("The certificate is self-signed")
+        check_self_signed_cert(server_cert)
+        
+    end
+    
 
     return server_cert, ca_cert
 end
 
+local function is_in_blacklist(blacklist, cert)
+    local in_blacklist = false
+    local entry = nil
+    for _, v in pairs(blacklist) do
+        if (cert.issuer["organizationName"] == v.name) or
+           (cert.issuer["commonName"] == v.name) or 
+           (cert.subject["organizationName"] == v.name) or 
+           (cert.subject["commonName"] == v.name) then
+            in_blacklist = true
+            entry = v
+        end
+    end
 
+    return in_blacklist, entry
+end
+
+-- Checks the certificate is within its validid date range
+local function check_validity(cert)
+    local not_before, not_after = datetime.format_timestamp(cert.validity.notBefore),
+                                  datetime.format_timestamp(cert.validity.notAfter)
+    -- The dates are compared with the current date formatted to the certificate validity dates format                              
+    return not_before <= os.date("%Y-%M-%DT%H:%M:%S") and os.date("%Y-%M-%DT%H:%M:%S") <= not_after
+end
 
 action = function(host, port)
     host.targetname = tls.servername(host)
-    local list_file = stdnse.get_script_args('list') or "blacklist.csv"
-    local list = read_list(list_file)
-
-    local server_cert, ca_cert = get_certifiates_info(host, port)
+    local list_filename = stdnse.get_script_args('list') or "blacklist.csv"
+    local blacklist = read_list(list_filename)
     
+    local server_cert, ca_cert = get_certifiates_info(host, port)
+    local in_blacklist, entry = is_in_blacklist(blacklist, server_cert)
+
+    if in_blacklist then
+        print("WARNING: Certificate's name was found in the blacklist!")
+        print("\t Certificate \'" .. entry.name .. "\' reported on " .. entry.date .. " with \'" .. entry.severity .. "\' severity")
+    end
+    
+    local valid = check_validity(server_cert)
+    if valid then
+        print("The certificate is within its valid date range")
+    else
+        print("WARNING: The certificate is not within it's valid range")
+    end
 
 end
-
-
-
-
--- -- From ssl-cert.nse (https://nmap.org/nsedoc/scripts/ssl-cert.html)
--- -- These are the subject/issuer name fields that will be shown, in this order,
--- -- without a high verbosity.
--- local NON_VERBOSE_FIELDS = { "commonName", "organizationName",
--- "stateOrProvinceName", "countryName" }
-
--- -- Test to see if the string is UTF-16 and transcode it if possible
--- local function maybe_decode(str)
---   -- If length is not even, then return as-is
---   if #str < 2 or #str % 2 == 1 then
---     return str
---   end
---   if str:byte(1) > 0 and str:byte(2) == 0 then
---     -- little-endian UTF-16
---     return unicode.transcode(str, unicode.utf16_dec, unicode.utf8_enc, false, nil)
---   elseif str:byte(1) == 0 and str:byte(2) > 0 then
---     -- big-endian UTF-16
---     return unicode.transcode(str, unicode.utf16_dec, unicode.utf8_enc, true, nil)
---   else
---     return str
---   end
--- end
--- function stringify_name(name)
---     local fields = {}
---     local _, k, v
---     if not name then
---       return nil
---     end
---     for _, k in ipairs(NON_VERBOSE_FIELDS) do
---       v = name[k]
---       if v then
---         fields[#fields + 1] = string.format("%s=%s", k, maybe_decode(v) or '')
---       end
---     end
---     if nmap.verbosity() > 1 then
---       for k, v in pairs(name) do
---         -- Don't include a field twice.
---         if not table_find(NON_VERBOSE_FIELDS, k) then
---           if type(k) == "table" then
---             k = table.concat(k, ".")
---           end
---           fields[#fields + 1] = string.format("%s=%s", k, maybe_decode(v) or '')
---         end
---       end
---     end
---     return table.concat(fields, "/")
---   end
-  
