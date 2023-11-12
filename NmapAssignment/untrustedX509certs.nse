@@ -77,8 +77,9 @@ local function get_certificate_chain(host, port)
     server_cert_file:close()
     
     -- The second certificate in the chain is the CA certificate
-    local ca_cert_filename = "ca.pem"
+    local ca_cert_filename = nil
     if certificates[2] ~= nil then
+        ca_cert_filename = "ca.pem"
         local ca_cert_file = io.open(ca_cert_filename, "w")
         ca_cert_file:write(certificates[2])
         ca_cert_file:close()
@@ -123,7 +124,22 @@ local function check_signature(server_cert_file, ca_cert_file)
 end
 
 local function check_self_signed_cert(cert)
-    local key = cert.pubkey.bits
+    local match = true
+    for k, v in pairs(cert.issuer) do
+        
+        if v ~= cert.subject[k] then
+            print("WARNING: Missing CA certificate")
+            match = false
+            break
+        end
+    end
+    
+    if match then
+        print("The certificate is self signed")
+    end
+
+    -- Checks the signature of the self signed certificate
+    check_signature("server.pem", "server.pem")
     
 end
 
@@ -151,8 +167,7 @@ local function get_certifiates_info(host, port)
         check_issuer(server_cert, ca_cert)
         check_signature(server_cert_file, ca_cert_file)
     else
-        -- The certificate is self signed
-        print("The certificate is self-signed")
+        -- If there is no CA certificate, we check if the certificate is self signed
         check_self_signed_cert(server_cert)
         
     end
@@ -182,15 +197,84 @@ local function check_validity(cert)
     local not_before, not_after = datetime.format_timestamp(cert.validity.notBefore),
                                   datetime.format_timestamp(cert.validity.notAfter)
     -- The dates are compared with the current date formatted to the certificate validity dates format                              
-    return not_before <= os.date("%Y-%M-%DT%H:%M:%S") and os.date("%Y-%M-%DT%H:%M:%S") <= not_after
+    return not_before <= os.date("%Y-%m-%dT%H:%M:%S") and os.date("%Y-%m-%dT%H:%M:%S") <= not_after
+end
+
+-- Checks if the Subject Alternative Name contains the host name
+local function ckeck_alternative_name(cert, host)
+    local correct = nil
+    if cert.extensions then
+        for _, e in ipairs(cert.extensions) do
+          if e.name == "X509v3 Subject Alternative Name" then
+            correct = false
+            if string.find(e.value, host.targetname) then
+                correct = true
+            end
+            break
+          end
+        end
+    end
+    return correct
+end
+
+-- Prints the most relevant info of the certificate
+local function print_certificate(cert)
+    print("Certificate Info:")
+    print("| Subject: ")
+    for k, v in pairs(cert.subject) do
+        print("|  " .. k .. " = " .. v)
+    end
+    if cert.extensions then
+        for _, e in ipairs(cert.extensions) do
+          if e.name == "X509v3 Subject Alternative Name" then
+            print("Subject Alternative Name: " .. e.value)
+            break
+          end
+        end
+    end
+    print("| Issuer: ")
+    for k, v in pairs(cert.issuer) do
+        print("|  " .. k .. " = " .. v)
+    end
+
+    print("| Public Key type: " .. cert.pubkey.type)
+    print("| Public Key bits: " .. cert.pubkey.bits)
+    print("| Signature Algorithm: " .. cert.sig_algorithm)
+
+    print("| Not valid before " .. datetime.format_timestamp(cert.validity.notBefore))
+    print("| Not valid after " .. datetime.format_timestamp(cert.validity.notAfter))
+
+    print("| MD5:   " .. stdnse.tohex(cert:digest("md5"), { separator = " ", group = 4 }))
+    print("| SHA-1: " .. stdnse.tohex(cert:digest("sha1"), { separator = " ", group = 4 }))
+
+    print(cert.pem)
 end
 
 action = function(host, port)
     host.targetname = tls.servername(host)
+
+    -- Basic functionality
     local list_filename = stdnse.get_script_args('list') or "blacklist.csv"
-    local blacklist = read_list(list_filename)
+    local blacklist = read_list(list_filename) 
     
     local server_cert, ca_cert = get_certifiates_info(host, port)
+
+    local valid = check_validity(server_cert)
+    if valid then
+        print("The certificate is within its valid date range")
+    else
+        print("WARNING: The certificate is not within it's valid range")
+    end
+
+    local correct_alt_name = ckeck_alternative_name(server_cert, host)
+    if correct_alt_name ~= nil then
+        if correct_alt_name then
+            print("The Subject Alternative Name matches the host name")
+        else
+            print("WARNING: The Subject Alternative Name does not match the host name")
+        end
+    end
+
     local in_blacklist, entry = is_in_blacklist(blacklist, server_cert)
 
     if in_blacklist then
@@ -198,11 +282,18 @@ action = function(host, port)
         print("\t Certificate \'" .. entry.name .. "\' reported on " .. entry.date .. " with \'" .. entry.severity .. "\' severity")
     end
     
-    local valid = check_validity(server_cert)
-    if valid then
-        print("The certificate is within its valid date range")
-    else
-        print("WARNING: The certificate is not within it's valid range")
+    if ca_cert ~= nil then
+        valid = check_validity(ca_cert)
     end
+    
+    -- Enhanced functionality
+    if server_cert.pubkey.bits < 2048 then
+        print("WARNING: The key length of public key is less than 2048 bits")
+    end
+
+    
+    
+
+    print_certificate(server_cert)
 
 end
