@@ -52,7 +52,9 @@ local function read_list(list_filename)
     list_file:close()
     return blacklist
 end
-
+-- Constants to define the filenames of the certificates
+local SERVER_CERT_FILENAME = "server.pem"
+local CA_CERT_FILENAME = "ca.pem"
 -- Gets the certificate chain via openssl and stores server cert and ca cert in files
 local function get_certificate_chain(host, port)
     local cmd = ("echo | openssl s_client -showcerts -connect %s:%s"):format(host.ip, port.number)
@@ -71,7 +73,7 @@ local function get_certificate_chain(host, port)
     end
 
     -- Write certificates in files
-    local server_cert_filename = "server.pem"
+    local server_cert_filename = SERVER_CERT_FILENAME
     local server_cert_file = io.open(server_cert_filename, "w")
     server_cert_file:write(certificates[1])
     server_cert_file:close()
@@ -79,7 +81,7 @@ local function get_certificate_chain(host, port)
     -- The second certificate in the chain is the CA certificate
     local ca_cert_filename = nil
     if certificates[2] ~= nil then
-        ca_cert_filename = "ca.pem"
+        ca_cert_filename = CA_CERT_FILENAME
         local ca_cert_file = io.open(ca_cert_filename, "w")
         ca_cert_file:write(certificates[2])
         ca_cert_file:close()
@@ -135,11 +137,11 @@ local function check_self_signed_cert(cert)
     end
     
     if match then
-        print("The certificate is self signed")
+        print("The certificate is self-signed")
     end
 
-    -- Checks the signature of the self signed certificate
-    check_signature("server.pem", "server.pem")
+    -- Checks the signature of the self-signed certificate
+    check_signature(SERVER_CERT_FILENAME, SERVER_CERT_FILENAME)
     
 end
 
@@ -167,7 +169,7 @@ local function get_certifiates_info(host, port)
         check_issuer(server_cert, ca_cert)
         check_signature(server_cert_file, ca_cert_file)
     else
-        -- If there is no CA certificate, we check if the certificate is self signed
+        -- If there is no CA certificate, we check if the certificate is self-signed
         check_self_signed_cert(server_cert)
         
     end
@@ -250,6 +252,13 @@ local function print_certificate(cert)
     print(cert.pem)
 end
 
+-- Removes PEM files
+local function remove_files()
+    local cmd = ("rm %s %s &> /dev/null"):format(SERVER_CERT_FILENAME, CA_CERT_FILENAME)
+    local handle = io.popen(cmd)
+    handle:close()
+end
+
 action = function(host, port)
     host.targetname = tls.servername(host)
 
@@ -292,8 +301,11 @@ action = function(host, port)
     end
 
     
-    
+    -- Delete PEM files as they are not longer needed
+    remove_files()
 
     print_certificate(server_cert)
+
+    
 
 end
