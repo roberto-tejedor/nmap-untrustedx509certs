@@ -94,60 +94,63 @@ end
 -- Verifies that the server certificate issuer matches the CA certificate subject
 local function check_issuer(server_cert, ca_cert)
     local match = true
+    local output
     for k, v in pairs(server_cert.issuer) do
         
         if v ~= ca_cert.subject[k] then
-            print("WARNING: The server certificate issuer does not match the CA certificate subject: field" .. k .. "is different.")
+            output = "WARNING: The server certificate issuer does not match the CA certificate subject: field" .. k .. "is different."
             match = false
             break
         end
     end
     
     if match then
-        print("The server certificate issuer matches the CA certificate subject")
+        output = "The server certificate issuer matches the CA certificate subject"
     end
+
+    return output
 end
 
 
 -- Verifies that the server cert is signed by the ca cert via openssl
 local function check_signature(server_cert_file, ca_cert_file)
-
+    local output
     local openssl_cmd = ("openssl verify -CAfile %s %s"):format(ca_cert_file, server_cert_file)
     local handle = io.popen(openssl_cmd)
-    local output = handle:read("*a")
+    local cmd_output = handle:read("*a")
     handle:close()
 
-    if string.find(output, "OK") then
-        print("Signature correct: " .. output)
+    if string.find(cmd_output, "OK") then
+        output = "Signature correct: " .. cmd_output
     else
-        print("WARNING: Error verifying signature: " .. output)
+        output = "WARNING: Error verifying signature: " .. cmd_output
     end
 
+    return output
 end
 
 local function check_self_signed_cert(cert)
+    local output
     local match = true
     for k, v in pairs(cert.issuer) do
         
         if v ~= cert.subject[k] then
-            print("WARNING: Missing CA certificate")
+            output = "WARNING: Missing CA certificate"
             match = false
             break
         end
     end
     
     if match then
-        print("The certificate is self-signed")
+        output = "The certificate is self-signed"
     end
 
-    -- Checks the signature of the self-signed certificate
-    check_signature(SERVER_CERT_FILENAME, SERVER_CERT_FILENAME)
+    return output
     
 end
 
 -- Gets the certificates and parses them using sslcert library to access the fields easily
 local function get_certifiates_info(host, port)
-
     -- Get the certificate in PEM format
     local server_cert_file, ca_cert_file = get_certificate_chain(host, port)
 
@@ -163,16 +166,6 @@ local function get_certifiates_info(host, port)
     end
     
     handle:close()
-    
-    -- Validations
-    if ca_cert ~= nil then
-        check_issuer(server_cert, ca_cert)
-        check_signature(server_cert_file, ca_cert_file)
-    else
-        -- If there is no CA certificate, we check if the certificate is self-signed
-        check_self_signed_cert(server_cert)
-        
-    end
     
 
     return server_cert, ca_cert
@@ -221,35 +214,38 @@ end
 
 -- Prints the most relevant info of the certificate
 local function print_certificate(cert)
-    print("Certificate Info:")
-    print("| Subject: ")
+    local output = {}
+    output[#output + 1] = "Certificate Info:"
+    output[#output + 1] = "| Subject: "
     for k, v in pairs(cert.subject) do
-        print("|  " .. k .. " = " .. v)
+        output[#output + 1] = "|  " .. k .. " = " .. v
     end
     if cert.extensions then
         for _, e in ipairs(cert.extensions) do
           if e.name == "X509v3 Subject Alternative Name" then
-            print("Subject Alternative Name: " .. e.value)
+            output[#output + 1] = "Subject Alternative Name: " .. e.value
             break
           end
         end
     end
-    print("| Issuer: ")
+    output[#output + 1] = "| Issuer: "
     for k, v in pairs(cert.issuer) do
-        print("|  " .. k .. " = " .. v)
+        output[#output + 1] = "|  " .. k .. " = " .. v
     end
 
-    print("| Public Key type: " .. cert.pubkey.type)
-    print("| Public Key bits: " .. cert.pubkey.bits)
-    print("| Signature Algorithm: " .. cert.sig_algorithm)
+    output[#output + 1] = "| Public Key type: " .. cert.pubkey.type
+    output[#output + 1] = "| Public Key bits: " .. cert.pubkey.bits
+    output[#output + 1] = "| Signature Algorithm: " .. cert.sig_algorithm
 
-    print("| Not valid before " .. datetime.format_timestamp(cert.validity.notBefore))
-    print("| Not valid after " .. datetime.format_timestamp(cert.validity.notAfter))
+    output[#output + 1] = "| Not valid before " .. datetime.format_timestamp(cert.validity.notBefore)
+    output[#output + 1] = "| Not valid after " .. datetime.format_timestamp(cert.validity.notAfter)
 
-    print("| MD5:   " .. stdnse.tohex(cert:digest("md5"), { separator = " ", group = 4 }))
-    print("| SHA-1: " .. stdnse.tohex(cert:digest("sha1"), { separator = " ", group = 4 }))
+    output[#output + 1] = "| MD5:   " .. stdnse.tohex(cert:digest("md5"), { separator = " ", group = 4 })
+    output[#output + 1] = "| SHA-1: " .. stdnse.tohex(cert:digest("sha1"), { separator = " ", group = 4 })
 
-    print(cert.pem)
+    output[#output + 1] = cert.pem
+
+    return table.concat(output, "\n")
 end
 
 -- Removes PEM files
@@ -261,51 +257,64 @@ end
 
 action = function(host, port)
     host.targetname = tls.servername(host)
-
+    local output = {}
     -- Basic functionality
     local list_filename = stdnse.get_script_args('list') or "blacklist.csv"
     local blacklist = read_list(list_filename) 
     
     local server_cert, ca_cert = get_certifiates_info(host, port)
-
-    local valid = check_validity(server_cert)
-    if valid then
-        print("The certificate is within its valid date range")
+    -- Validations
+    if ca_cert ~= nil then
+        output[#output + 1] = check_issuer(server_cert, ca_cert)
+        output[#output + 1] = check_signature(SERVER_CERT_FILENAME, CA_CERT_FILENAME)
     else
-        print("WARNING: The certificate is not within it's valid range")
+        -- If there is no CA certificate, we check if the certificate is self-signed
+        output[#output + 1] = check_self_signed_cert(server_cert)
+        -- Check the signature of the self-signed certificate
+        output[#output + 1] = check_signature(SERVER_CERT_FILENAME, SERVER_CERT_FILENAME)
+    end
+    local valid = check_validity(server_cert)
+    
+    if ca_cert ~= nil then
+        valid = check_validity(ca_cert)
+    end
+
+    if valid then
+        output[#output + 1] = "The certificate is within its valid date range"
+    else
+        output[#output + 1] = "WARNING: The certificate is not within it's valid range"
     end
 
     local correct_alt_name = ckeck_alternative_name(server_cert, host)
     if correct_alt_name ~= nil then
         if correct_alt_name then
-            print("The Subject Alternative Name matches the host name")
+            output[#output + 1] = "The Subject Alternative Name matches the host name"
         else
-            print("WARNING: The Subject Alternative Name does not match the host name")
+            output[#output + 1] = "WARNING: The Subject Alternative Name does not match the host name"
         end
     end
 
     local in_blacklist, entry = is_in_blacklist(blacklist, server_cert)
 
     if in_blacklist then
-        print("WARNING: Certificate's name was found in the blacklist!")
-        print("\t Certificate \'" .. entry.name .. "\' reported on " .. entry.date .. " with \'" .. entry.severity .. "\' severity")
+        output[#output + 1] = "WARNING: Certificate's name was found in the blacklist!"
+        output[#output + 1] = "\t Certificate \'" .. entry.name .. "\' reported on " .. entry.date .. " with \'" .. entry.severity .. "\' severity"
     end
     
-    if ca_cert ~= nil then
-        valid = check_validity(ca_cert)
-    end
+   
     
     -- Enhanced functionality
     if server_cert.pubkey.bits < 2048 then
-        print("WARNING: The key length of public key is less than 2048 bits")
+        output[#output + 1] = "WARNING: The key length of public key is less than 2048 bits"
     end
 
     
     -- Delete PEM files as they are not longer needed
     remove_files()
 
-    print_certificate(server_cert)
+    output[#output + 1] = print_certificate(server_cert)
 
+    return table.concat(output, "\n")
     
 
 end
