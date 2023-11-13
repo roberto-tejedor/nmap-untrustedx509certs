@@ -1,0 +1,4 @@
+Description:
+Input:
+Output:
+Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149

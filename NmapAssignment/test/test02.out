@@ -1,0 +1,57 @@
+# Nmap 7.91 scan initiated Mon Nov 13 06:09:01 2023 as: nmap --script ./untrustedX509certs.nse --script-args list=blacklist.csv -p 443 -oN test/test02.out 10.0.3.149
+Nmap scan report for 10.0.3.149
+Host is up (0.00052s latency).
+
+PORT    STATE SERVICE
+443/tcp open  https
+| untrustedX509certs: The server certificate issuer matches the CA certificate subject
+| Signature correct: server.pem: OK
+| 
+| The certificate is within its valid date range
+| Certificate Info:
+| | Subject: 
+| |  countryName = ES
+| |  emailAddress = user@uc3m.es
+| |  organizationName = UC3M
+| |  localityName = Madrid
+| |  stateOrProvinceName = Madrid
+| | Issuer: 
+| |  countryName = ES
+| |  emailAddress = ca@cert.es
+| |  organizationName = CA Company S.L.
+| |  localityName = Madrid
+| |  stateOrProvinceName = Madrid
+| | Public Key type: rsa
+| | Public Key bits: 2048
+| | Signature Algorithm: sha256WithRSAEncryption
+| | Not valid before 2023-11-12T14:34:15
+| | Not valid after 2025-03-26T14:34:15
+| | MD5:   22dc cd14 e368 83b8 3662 76c6 3889 aaa5
+| | SHA-1: eaa3 6ad0 ece3 84c5 a19f 3a00 a059 473b a9fe ee83
+| -----BEGIN CERTIFICATE-----
+| MIIEOzCCAiMCCQCaxlNU4IfPNjANBgkqhkiG9w0BAQsFADBkMQswCQYDVQQGEwJF
+| UzEPMA0GA1UECBMGTWFkcmlkMQ8wDQYDVQQHEwZNYWRyaWQxGDAWBgNVBAoTD0NB
+| IENvbXBhbnkgUy5MLjEZMBcGCSqGSIb3DQEJARYKY2FAY2VydC5lczAeFw0yMzEx
+| MTIxNDM0MTVaFw0yNTAzMjYxNDM0MTVaMFsxCzAJBgNVBAYTAkVTMQ8wDQYDVQQI
+| EwZNYWRyaWQxDzANBgNVBAcTBk1hZHJpZDENMAsGA1UEChMEVUMzTTEbMBkGCSqG
+| SIb3DQEJARYMdXNlckB1YzNtLmVzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+| CgKCAQEA21PjnxqMMbDZIprnQyE8NV2E8iR/EY2WhLKl5yV+OEzB9ixR8/xcmtzk
+| gb7V0wFMgVD9pyBBisRx63qD4wm/iBSddghp3XNu25lr1/MuzeRv4BkFEL+9wBtl
+| JOIeXCBXKS0eGSADVTbvi9pMfSnsupTWUe19npSCezUnqOwdxTIyj3T/cJM02SCJ
+| UHbYPg3+DUwzV9U7aL4NkpiMZIEYFv5zf15/UuYURnY0ZZlzB2pKxYdyZQKAA7MX
+| wz84hjVfh9Tnds+LQZQ3QNwjVu45wDm3sgGcVT36/XfY7sw6GIic7mkSChTe9pJX
+| aBxa47zeE1ozeO9t18tpOV8O0ogblwIDAQABMA0GCSqGSIb3DQEBCwUAA4ICAQC9
+| 55aPAlCaSsu6nTaA69lE23S+n+nc4e1rAoyXRQ2DadrHT2kwQe2GSMGr98g1fabL
+| V7gqnTv2XEv2+4X7mJQnXYiSUDdARjTP+a8SzHXRbU90GEFStz6y9ubG61sf5fkG
+| KiqybaLOtMnFK/IiQ5Io5GDGnsFCeSaNppjoDShjZZjC98+yWTPomR5IQ0q8uQWY
+| 9lk5T7PF6e/koOU8f8KJ5oG08GPse6giIKUHGyIKPTfMOKkINuKSOG+GsiKDdeJ0
+| g2ehH2cqWyFUmJeif2FE4QVz2ig5Cei0MANQOCE3qzATkqbjZDsuKokpO6B5fS0o
+| 3JaBtY6Rl9T1hX6sLovE/5YQa2X/Sa0b5kBe46qdIRi1wTSoylZSIYxtHryoUh7I
+| EZWFG2ZC1BF23sQz4Zcy3ZvpfGqJb47H2fH2V7+e2iXHia15/KFO1uB0kCIDG6wt
+| Cjg6G3OpmMoxJyV5+Ct7drlIpxDywasBnQ89U8IMQplSnVC/Ldub0mgApyQeb6GY
+| 5gfVSJ5UY842AUjdEwdQRaQP1B7OCXDOOrbHNWpWeRBpOpBEtY/qdlRJu83IXoC0
+| y/mMTL1/OWUmoRb41noLMVhLqYeXb3zjsb2lHrJ/qi2FKR+QwE0OZ1MXYudyLHqK
+| LXupjevMthPbrbRlW+vHrB78RYw8mLidDZ3tLHS4rQ==
+|_-----END CERTIFICATE-----
+
+# Nmap done at Mon Nov 13 06:09:14 2023 -- 1 IP address (1 host up) scanned in 13.29 seconds

@@ -1,0 +1,56 @@
+# Nmap 7.91 scan initiated Mon Nov 13 06:02:17 2023 as: nmap --script ./untrustedX509certs.nse --script-args list=blacklist.csv -p 443 -oN test/test01.out 10.0.3.149
+Nmap scan report for 10.0.3.149
+Host is up (0.0075s latency).
+
+PORT    STATE SERVICE
+443/tcp open  https
+| untrustedX509certs: The server certificate issuer matches the CA certificate subject
+| Signature correct: server.pem: OK
+| 
+| The certificate is within its valid date range
+| WARNING: Certificate's name was found in the blacklist!
+| 	 Certificate 'Internet Widgits Pty Ltd' reported on 12/02/2020 with 'critical' severity
+| Certificate Info:
+| | Subject: 
+| |  countryName = ES
+| |  organizationName = uc3m
+| |  stateOrProvinceName = Madrid
+| |  emailAddress = user@uc3m.es
+| |  localityName = Madrid
+| | Issuer: 
+| |  organizationName = Internet Widgits Pty Ltd
+| |  stateOrProvinceName = Some-State
+| |  countryName = AU
+| | Public Key type: rsa
+| | Public Key bits: 2048
+| | Signature Algorithm: sha256WithRSAEncryption
+| | Not valid before 2023-11-12T12:57:02
+| | Not valid after 2025-03-26T12:57:02
+| | MD5:   7e1a db24 49cc 754a 5b8f 06e9 5133 b6f8
+| | SHA-1: f3df aaa0 8f66 3206 8cba 571a e88a 3c96 93c1 ccc7
+| -----BEGIN CERTIFICATE-----
+| MIIEHDCCAgQCCQDGAx23XgXohTANBgkqhkiG9w0BAQsFADBFMQswCQYDVQQGEwJB
+| VTETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0
+| cyBQdHkgTHRkMB4XDTIzMTExMjEyNTcwMloXDTI1MDMyNjEyNTcwMlowWzELMAkG
+| A1UEBhMCRVMxDzANBgNVBAgTBk1hZHJpZDEPMA0GA1UEBxMGTWFkcmlkMQ0wCwYD
+| VQQKEwR1YzNtMRswGQYJKoZIhvcNAQkBFgx1c2VyQHVjM20uZXMwggEiMA0GCSqG
+| SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDej9vidnOZptGeSb+oflA5S7zjFh2dnvPn
+| CCQutnMZCvrZLOZ2Qs73tnH/SlXJuJttiKXVc9YRS6cMBhvwWOUJcA+ch+gnMT0S
+| XJoSCQBEtl2uSi9e7AMNM4roOTlF8XQXkq0WubLMv7eYcbd1HDcInPJVFGtdVO5H
+| qE+0V0mcw8/5Jb8GGbJyFjGyUGoiWV9N5BPyWiznKs+tAwMVmw5NmzS2yjDylFJH
+| 7XFS5pXHa8O+C+3k/J3MhSunJ21nE09QTMHZPq/l9JuOvtiqmSVMzw3IQizinWfx
+| u0TwIa2r/aspbrheELpWh4acSyAjGNnzlW36af4NN2PsW5H/tQCPAgMBAAEwDQYJ
+| KoZIhvcNAQELBQADggIBAI8qulkayfLewLjQXnOhqWMT7VMW6pLTqGEpk+EdCUV9
+| 4+hfoHUGWdIpepW8EintMnMnow9JSp5ifTvZKdot71AJ6T6ltfz3QusIhey2LsIt
+| Y9RQ4y/nZ+V0a54NxKB+Wc4t7EsGa/1dThyQrx2G9LUUIwjQfgimUhwrKX6EZbjN
+| 1DfWanjF0uRLsCglCNgVjXMa0Cqp0A2AATjAOu0fjoFrJjEiKLZPBYzy2Ve1rrNz
+| af+ano2pGl+sNR8oBGLvAthXbcnjBLQEIQYwrMCQmqMIWcDZYO0/kIFFvMOMRmzn
+| SUAecrePOy1Fs2/k4IMMjhW0KipWCyZMOj0pYcLzw4+fia1XJ8eA61XGMLlLahzC
+| Digpi6fEBtDlZxfyzjc5P7iKT+dyhNP2X0S0ZZRBE2LEqTHi5DXKcD3DQIfCiHZR
+| RXRPoE1hjL1l2tZkSijFNnJZh8SjE8sJCT/ZD9NqL4uyuql+2oqGeR3d5igfwZl8
+| KaEUzqYbPyPWQ3eTv8sM//pPN1uL7oxvLuOOtq6S526uPr7qfktw9/t7hitchq64
+| bCYmJ+uFg4Whr2zvaOnSY3jmyiE0/8nAhXlY7N7W+YU2C2WvGpEQ2Ybe57nzEzjI
+| P+5B+ldPZZRCkkjx8C3THKd4H5HlLKa6ZR3OOiD7N53G4sI0dtFz8y6QYvUlDpKq
+|_-----END CERTIFICATE-----
+
+# Nmap done at Mon Nov 13 06:02:31 2023 -- 1 IP address (1 host up) scanned in 13.28 seconds
