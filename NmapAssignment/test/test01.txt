@@ -1,4 +1,4 @@
-Description:
-Input:
-Output:
-Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149
+Description: In this test the server certificate (server.pem) is signed by a CA (ca.pem), whose organizationName (Internet Widgits Pty Ltd) is listed in the blacklist
+Input: --script-args "list=blacklist.csv"
+Output: It is expected to print a warning indicating that a blacklisted certificate was found and the information of the entry of the blacklist
+Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149 -oN ./test/test01.out

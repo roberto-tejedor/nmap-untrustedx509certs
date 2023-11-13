@@ -1,0 +1,7 @@
+Description: The certificate (server4.pem) is self-signed, the commonName is in the blacklist and the public key algorithm has 1024 bits and the date of the kali has been modified to test the validity warnings
+Input: --script-args "list=blacklist.csv"
+Output: The script is expected to print that the certificate is self signed and some warnings:
+            - The certificate is blacklisted
+            - The public key algorithm is weak
+            - The certificate is not within it's validity date range
+Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149 -oN ./test/test04.out

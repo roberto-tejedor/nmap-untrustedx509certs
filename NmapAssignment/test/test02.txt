@@ -1,0 +1,4 @@
+Description: The certificate (server2.pem) is signed by a CA not registered in the blacklist
+Input: --script-args "list=blacklist.csv"
+Output: The output is expected to not report any warning, just information about the certificate and the validations
+Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149 -oN ./test/test02.out

@@ -1,0 +1,4 @@
+Description: The certificate (server3.pem) is self-signed
+Input: --script-args "list=blacklist.csv"
+Output: The script is expected to report that the certificate is self-signed
+Command: nmap --script ./untrustedX509certs.nse --script-args "list=blacklist.csv" -p 443 10.0.3.149 -oN ./test/test03.out
